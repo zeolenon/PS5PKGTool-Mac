@@ -36,6 +36,12 @@ internal static class GuiChecks
         model.Workspace = Path.Combine(root, "missing workspace");
         await model.ConvertAsync();
         Check(model.Error.Contains("workspace") && !File.Exists(model.Output), "Missing GUI workspace was accepted");
+        model.Workspace = workspace;
+        model.Input = source;
+        await model.DetectAsync();
+        model.Output = Path.Combine(source, "inside.exfat");
+        await model.ConvertAsync();
+        Check(model.Error.Contains("outside") && !File.Exists(model.Output), "GUI accepted output inside the source folder");
         model.Input = Path.Combine(root, "missing.pkg");
         await model.DetectAsync();
         Check(!model.Ready && !model.CanConvert && model.Error.Length > 0 && !model.Busy, "GUI metadata error handling failed");

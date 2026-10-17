@@ -20,8 +20,8 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key><string>PS5 PKG Tool</string>
   <key>CFBundleDisplayName</key><string>PS5 PKG Tool</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.3.0</string>
+  <key>CFBundleVersion</key><string>2</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
 </dict></plist>
@@ -33,7 +33,8 @@ cp PS5PKGTool.Mac/AVALONIA-LICENSE "$app/Contents/Resources/"
 cp PS5PKGTool.Mac/SKIA-LICENSE PS5PKGTool.Mac/HARFBUZZSHARP-LICENSE "$app/Contents/Resources/"
 cat > "$app/Contents/Resources/MACOS-PORT.txt" <<'NOTICE'
 Development macOS port of pearlxcore/PS5PKGTool, modified under GPL-3.0.
-Source: https://github.com/foresthpark/PS5PKGTool-Mac
+Source: https://github.com/zeolenon/PS5PKGTool-Mac
+Initial macOS port: https://github.com/foresthpark/PS5PKGTool-Mac
 Original: https://github.com/pearlxcore/PS5PKGTool
 Avalonia (MIT): https://github.com/AvaloniaUI/Avalonia/blob/master/licence.md
 SkiaSharp (MIT): https://github.com/mono/SkiaSharp/blob/main/LICENSE.md

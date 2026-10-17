@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using PS5PKGTool.Core.Models;
+using PS5PKGTool.Core.Parsers;
 using PS5PKGTool.Core.Services;
 using PS5PKGTool.Ffpfsc;
 
@@ -16,7 +17,7 @@ public sealed class ConversionViewModel : INotifyPropertyChanged
     public string Title { get; private set; } = "No package selected";
     public string TitleId { get; private set; } = "—";
     public string PackageType { get; private set; } = "—";
-    public string Status { get; private set; } = "Select a debug/fake PKG to begin.";
+    public string Status { get; private set; } = "Select a dump folder or debug/fake PKG to begin.";
     public string Error { get; private set; } = "";
     public double Percent { get; private set; }
     public bool Indeterminate { get; private set; }
@@ -34,15 +35,19 @@ public sealed class ConversionViewModel : INotifyPropertyChanged
         try
         {
             string path = Path.GetFullPath(Input);
-            Ps5GameInfo game = await Task.Run(() => new SonyPkgGameReader().Read(path));
+            bool isDirectory = Directory.Exists(path);
+            Ps5GameInfo game = await Task.Run(() => isDirectory
+                ? new Ps5ParamReader().Read(Path.Combine(path, "sce_sys", "param.json"))
+                : new SonyPkgGameReader().Read(path));
             cancellation!.Token.ThrowIfCancellationRequested();
             Title = game.Title;
             TitleId = game.TitleId;
-            PackageType = game.Package?.KindDisplayName ?? "Unknown";
-            if (game.Package is not { Kind: SonyPkgKind.FinalizedDebug, PfsImageSize: > 0 })
+            PackageType = isDirectory ? "Dump folder" : game.Package?.KindDisplayName ?? "Unknown";
+            if (!isDirectory && game.Package is not { Kind: SonyPkgKind.FinalizedDebug, PfsImageSize: > 0 })
                 throw new InvalidDataException("Only finalized debug/fake PKGs are supported. Retail, metadata-only and patch packages cannot be converted here.");
             Ready = true;
-            if (string.IsNullOrWhiteSpace(Output)) Output = Path.ChangeExtension(path, ".exfat");
+            if (string.IsNullOrWhiteSpace(Output))
+                Output = Path.ChangeExtension(Path.TrimEndingDirectorySeparator(path), ".exfat");
             Status = "Ready to convert to exFAT.";
         }
         catch (OperationCanceledException) { Status = "Cancelled."; }
@@ -55,9 +60,18 @@ public sealed class ConversionViewModel : INotifyPropertyChanged
         if (!CanConvert) return;
         Begin("Preparing conversion…");
         CancellationTokenSource operation = cancellation!;
+        string? temporaryRoot = null;
         try
         {
             string source = Path.GetFullPath(Input), destination = Path.GetFullPath(Output);
+            bool isDirectory = Directory.Exists(source);
+            if (isDirectory)
+            {
+                string relative = Path.GetRelativePath(source, destination);
+                if (!Path.IsPathRooted(relative) && relative != ".." &&
+                    !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    throw new IOException("The output must be outside the source directory.");
+            }
             if (File.Exists(destination) || Directory.Exists(destination))
                 throw new IOException("The output already exists. Choose a new filename to preserve it.");
             if (!string.Equals(Path.GetExtension(destination), ".exfat", StringComparison.OrdinalIgnoreCase))
@@ -65,6 +79,7 @@ public sealed class ConversionViewModel : INotifyPropertyChanged
             string staging = string.IsNullOrWhiteSpace(Workspace)
                 ? Path.GetDirectoryName(destination)! : Path.GetFullPath(Workspace);
             if (!Directory.Exists(staging)) throw new DirectoryNotFoundException("The temporary workspace must be an existing directory.");
+            temporaryRoot = Path.Combine(staging, ".ps5pkgtool-" + Guid.NewGuid().ToString("N"));
             var progress = new Progress<Ps5ImageConversionProgress>(value =>
             {
                 if (!ReferenceEquals(cancellation, operation)) return;
@@ -73,15 +88,23 @@ public sealed class ConversionViewModel : INotifyPropertyChanged
                 Status = $"{value.Stage} · {value.Completed / 1048576.0:N1} / {value.Total / 1048576.0:N1} MiB";
                 Notify();
             });
-            Ps5ImageConversionResult result = await Task.Run(() => SonyPackageImageConversion.ConvertAsync(
-                source, destination, Ps5ImageConversionTarget.Exfat, progress: progress,
-                cancellationToken: operation.Token, temporaryDirectory: staging));
+            Ps5ImageConversionResult result = await Task.Run(() => isDirectory
+                ? Ps5ImageConversionService.ConvertAsync(source, destination, Ps5ImageConversionTarget.Exfat,
+                    progress: progress, cancellationToken: operation.Token, tempDirectory: temporaryRoot)
+                : SonyPackageImageConversion.ConvertAsync(source, destination, Ps5ImageConversionTarget.Exfat,
+                    progress: progress, cancellationToken: operation.Token, tempDirectory: temporaryRoot));
             Percent = 100;
             Status = $"Verified exFAT image · {result.FileCount:N0} files · {result.OutputBytes / 1073741824.0:N2} GiB";
         }
-        catch (OperationCanceledException) { Status = "Cancelled. No image was published."; }
+        catch (OperationCanceledException) { Status = "Cancelled. Check the output path before retrying."; }
         catch (Exception exception) { Error = exception.Message; Status = "Conversion failed."; }
-        finally { End(); }
+        finally
+        {
+            try { if (temporaryRoot is not null && Directory.Exists(temporaryRoot)) Directory.Delete(temporaryRoot, true); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            End();
+        }
     }
 
     public void Cancel()

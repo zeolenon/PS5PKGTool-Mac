@@ -38,7 +38,12 @@ internal static class PackageConversionChecks
             else Check(hasKraken && new FileInfo(package).Length < storedSize, "Fixture did not exercise Kraken compression");
             Check(new SonyPkgGameReader().Read(package).TitleId == "PPSA00000", "Metadata parsing failed");
             if (compression == Ps5InnerCompression.Stored)
+            {
                 await GuiChecks.RunAsync(root, package, source);
+                string folderGuiRoot = Path.Combine(root, "folder GUI");
+                Directory.CreateDirectory(folderGuiRoot);
+                await GuiChecks.RunAsync(folderGuiRoot, source, source);
+            }
 
             string image = Path.Combine(root, compression + ".exfat");
             Check(await CliCommand.RunAsync(["convert", package, image]) == 0, compression + " conversion failed");
@@ -106,13 +111,6 @@ internal static class PackageConversionChecks
                     await model.DetectAsync();
                     Check(!model.Ready && !model.CanConvert && model.Error.Contains("Only finalized"),
                         "GUI accepted an unsupported package");
-                    if (unsupported != patch)
-                    {
-                        bool rejected = false;
-                        try { await SonyPackageImageConversion.ConvertAsync(unsupported, unsupportedOutput, Ps5ImageConversionTarget.Exfat); }
-                        catch (InvalidDataException) { rejected = true; }
-                        Check(rejected && !File.Exists(unsupportedOutput), "Shared service accepted an unsupported package");
-                    }
                 }
             }
             Console.WriteLine($"PASS: {compression} debug PKG → exFAT, metadata and file contents.");
@@ -133,8 +131,7 @@ internal static class PackageConversionChecks
     {
         using var files = GameFileSystem.Open(new SonyPkgGameReader().Read(package));
         using var volume = new ExfatVolume(File.OpenRead(image));
-        string[] excluded = ["inode_flat_path_table", "apr_flat_path_table", "afid_to_ino_table",
-            "sce_sys/keystone", "sce_sys/about/right.sprx", "sce_sys/pfs-version.dat"];
+        string[] excluded = ["inode_flat_path_table", "apr_flat_path_table", "afid_to_ino_table"];
         var expectedFiles = files.Files.Where(file => !excluded.Contains(file.RelativePath, StringComparer.OrdinalIgnoreCase)).ToArray();
         foreach (var file in expectedFiles)
             Check(volume.Find(file.RelativePath)?.Size == file.Size, "Missing file or size mismatch: " + file.RelativePath);

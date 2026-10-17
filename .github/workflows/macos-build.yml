@@ -46,6 +46,12 @@ jobs:
       - name: Publish Apple Silicon app
         run: bash scripts/publish-macos.sh
 
+      - name: Publish standalone CLI and local verification runner
+        run: |
+          dotnet publish PS5PKGTool.Cli -c Release -r osx-arm64 --self-contained true --disable-build-servers -p:UseSharedCompilation=false -o artifacts/cli
+          dotnet publish PS5PKGTool.Tests -c Release -r osx-arm64 --self-contained true --disable-build-servers -p:UseSharedCompilation=false -o artifacts/verification
+          tar -czf artifacts/PS5PKGTool-Mac-verification-osx-arm64.tar.gz -C artifacts cli verification
+
       - name: Create installation DMG
         run: bash scripts/create-dmg.sh
 
@@ -72,6 +78,7 @@ jobs:
             artifacts/PS5PKGTool-Mac-osx-arm64.dmg
             artifacts/PS5PKGTool-Mac-osx-arm64.tar.gz
             artifacts/PS5PKGTool-Mac-source.tar.gz
+            artifacts/PS5PKGTool-Mac-verification-osx-arm64.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

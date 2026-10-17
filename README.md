@@ -1,3 +1,42 @@
+# PS5 PKG Tool for macOS (Apple Silicon)
+
+Native ARM64 macOS app built from pearlxcore/PS5PKGTool, with the initial Avalonia port by foresthpark. This branch integrates the macOS frontend with upstream 1.3.0 and subsequent fixes.
+
+- Select a PS5 dump folder containing `sce_sys/param.json`, or a finalized debug/fake PKG.
+- Read the title and Title ID, choose a new `.exfat` output outside the source, then convert.
+- Progress, cancellation, workspace selection, output verification and overwrite protection are included.
+- macOS 14 or newer. The published app includes .NET; no SDK or runtime installation is required to use it.
+
+This frontend covers dump/PKG to exFAT conversion. The Windows library manager and other Windows tools below are not included in the Mac interface. Retail, metadata-only and patch PKGs are rejected by the Mac frontend. PS5 hardware mounting and gameplay have not been validated.
+
+## Build and checks
+
+With the .NET 10 SDK:
+
+```sh
+dotnet run --project PS5PKGTool.Tests -c Release
+bash scripts/publish-macos.sh
+bash scripts/create-dmg.sh
+```
+
+The macOS workflow also publishes standalone ARM64 CLI and verification executables. They can build a dump image and compare every file's size and SHA-256 without installing .NET:
+
+```sh
+./cli/ps5pkgtool build-exfat /path/to/dump /path/outside/dump/game.exfat
+./verification/PS5PKGTool.Tests /path/to/dump /path/outside/dump/game.exfat
+./verification/PS5PKGTool.Tests --gui-smoke
+```
+
+Build artifacts are ad hoc signed development builds. They are not Developer ID signed or notarized. Source and third-party notices are included with the artifacts. No Windows-native Oodle or LibProsperoPkg payload is included in the app.
+
+- Original: https://github.com/pearlxcore/PS5PKGTool
+- Initial macOS port: https://github.com/foresthpark/PS5PKGTool-Mac
+- This fork: https://github.com/zeolenon/PS5PKGTool-Mac
+
+The original Windows documentation follows.
+
+---
+
 # PS5 PKG Tool
 
 <img width="2560" height="1392" alt="image" src="https://github.com/pearlxcore/PS5PKGTool/blob/main/screenshot4.png" />

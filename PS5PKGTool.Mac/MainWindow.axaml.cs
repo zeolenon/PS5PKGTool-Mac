@@ -44,6 +44,15 @@ public partial class MainWindow : Window
         if (file?.TryGetLocalPath() is { } path) Model.Output = path;
     }
 
+    private async void BrowseDump(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Select PS5 dump folder" });
+        if (folders.Count == 0 || folders[0].TryGetLocalPath() is not { } path) return;
+        Model.Input = path;
+        Model.Output = "";
+        await Model.DetectAsync();
+    }
+
     private async void BrowseWorkspace(object? sender, RoutedEventArgs e)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Select temporary workspace" });
